@@ -83,6 +83,8 @@ The element template is automatically generated during the build process and pla
 2. Apply the "RSS Feed Connector" element template
 3. Configure the input parameters:
 
+![RSS Feed Process Example](img/process.png)
+
 ```json
 {
   "feedUrl": "https://feeds.bbci.co.uk/news/rss.xml",
@@ -182,7 +184,7 @@ See the [Connectors documentation](https://github.com/camunda/connectors) for bu
    - Add a Service Task and apply the "RSS Feed Connector" template
    - Configure the connector with a feed URL (e.g., `https://feeds.bbci.co.uk/news/rss.xml`)
    - Click the deployment icon and configure:
-     - **Cluster endpoint**: `http://localhost:26500`
+     - **Cluster endpoint**: `http://localhost:8088`
      - **Authentication**: Select **None** (for lightweight config)
    - Click **Deploy**
 
@@ -191,7 +193,7 @@ See the [Connectors documentation](https://github.com/camunda/connectors) for bu
    - **Tasklist**: [http://localhost:8088/tasklist](http://localhost:8088/tasklist) - Complete user tasks
    - Login with username: `demo`, password: `demo`
 
-7. Stop Camunda and clean up (from the `camunda-distributions/versions/camunda-8.x` directory):
+7. Stop Camunda and clean up (from the `camunda-distributions/versions/camunda-8.8` directory):
 
 ```bash
 docker compose down -v
