@@ -65,3 +65,20 @@ request*.json
 
 element-templates/.DS_Store
 .DS_Store
+
+# Maven generated files
+dependency-reduced-pom.xml
+
+# IDE and editor files
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini

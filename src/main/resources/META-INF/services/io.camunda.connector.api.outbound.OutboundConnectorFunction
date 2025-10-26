@@ -1,1 +1,1 @@
-io.camunda.example.MyConnectorFunction
+io.camunda.connector.rssfeed.RssFeedConnectorFunction

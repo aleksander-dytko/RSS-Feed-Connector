@@ -1,12 +1,12 @@
 {
   "$schema" : "https://unpkg.com/@camunda/zeebe-element-templates-json-schema/resources/schema.json",
-  "name" : "Template connector",
-  "id" : "io.camunda.connector.Template.v1",
-  "description" : "Describe this connector",
+  "name" : "RSS Feed Connector",
+  "id" : "io.camunda.connector.rssfeed.v1",
+  "description" : "Fetches and parses RSS feed data from a specified URL",
   "metadata" : {
     "keywords" : [ ]
   },
-  "documentationRef" : "https://docs.camunda.io/docs/components/connectors/out-of-the-box-connectors/available-connectors-overview/",
+  "documentationRef" : "https://github.com/camunda/RSS-Feed-Connector",
   "version" : 1,
   "category" : {
     "id" : "connectors",
@@ -17,11 +17,8 @@
     "value" : "bpmn:ServiceTask"
   },
   "groups" : [ {
-    "id" : "authentication",
-    "label" : "Authentication"
-  }, {
-    "id" : "compose",
-    "label" : "Compose"
+    "id" : "configuration",
+    "label" : "Configuration"
   }, {
     "id" : "connector",
     "label" : "Connector"
@@ -36,56 +33,71 @@
     "label" : "Retries"
   } ],
   "properties" : [ {
-    "value" : "io.camunda:template:1",
+    "value" : "io.camunda:rssfeed:1",
     "binding" : {
       "property" : "type",
       "type" : "zeebe:taskDefinition"
     },
     "type" : "Hidden"
   }, {
-    "id" : "authentication.user",
-    "label" : "Username",
-    "description" : "The username for authentication",
+    "id" : "feedUrl",
+    "label" : "Feed URL",
+    "description" : "The URL of the RSS feed to fetch (e.g., https://feeds.bbci.co.uk/news/rss.xml)",
     "optional" : false,
     "constraints" : {
       "notEmpty" : true
     },
     "feel" : "optional",
-    "group" : "authentication",
+    "group" : "configuration",
     "binding" : {
-      "name" : "authentication.user",
+      "name" : "feedUrl",
       "type" : "zeebe:input"
     },
     "type" : "String"
   }, {
-    "id" : "authentication.token",
-    "label" : "Token",
-    "description" : "The token for authentication",
+    "id" : "maxItems",
+    "label" : "Max Items",
+    "description" : "Maximum number of items to return (Max 500 items)",
     "optional" : false,
+    "value" : "10",
     "constraints" : {
-      "notEmpty" : true
+      "notEmpty" : true,
+      "pattern" : {
+        "value" : "^([1-9]|[1-9][0-9]|[1-4][0-9][0-9]|500)$",
+        "message" : "Must be a number between 1 and 500"
+      }
     },
     "feel" : "optional",
-    "group" : "authentication",
+    "group" : "configuration",
     "binding" : {
-      "name" : "authentication.token",
+      "name" : "maxItems",
       "type" : "zeebe:input"
     },
     "type" : "String"
   }, {
-    "id" : "message",
-    "label" : "Message",
-    "optional" : false,
-    "constraints" : {
-      "notEmpty" : true
-    },
+    "id" : "fromDate",
+    "label" : "From Date",
+    "description" : "Filter items published on or after this date (ISO8601 format, e.g., 2025-01-01T00:00:00Z)",
+    "optional" : true,
     "feel" : "optional",
-    "group" : "compose",
+    "group" : "configuration",
     "binding" : {
-      "name" : "message",
+      "name" : "fromDate",
       "type" : "zeebe:input"
     },
-    "type" : "Text"
+    "type" : "String"
+  }, {
+    "id" : "toDate",
+    "label" : "To Date",
+    "description" : "Filter items published on or before this date (ISO8601 format, e.g., 2025-12-31T23:59:59Z)",
+    "optional" : true,
+    "feel" : "optional",
+    "group" : "configuration",
+    "binding" : {
+      "name" : "toDate",
+      "type" : "zeebe:input"
+    },
+    "type" : "String"
   }, {
     "id" : "version",
     "label" : "Version",
@@ -101,7 +113,7 @@
     "id" : "id",
     "label" : "ID",
     "description" : "ID of the element template",
-    "value" : "io.camunda.connector.Template.v1",
+    "value" : "io.camunda.connector.rssfeed.v1",
     "group" : "connector",
     "binding" : {
       "key" : "elementTemplateId",
@@ -112,6 +124,7 @@
     "id" : "resultVariable",
     "label" : "Result variable",
     "description" : "Name of variable to store the response in",
+    "value" : "rssFeedResult",
     "group" : "output",
     "binding" : {
       "key" : "resultVariable",
@@ -165,6 +178,6 @@
     "type" : "String"
   } ],
   "icon" : {
-    "contents" : "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMTgiIHdpZHRoPSIxOCIgdmlld0JveD0iMCAwIDEwIDEwIiBzaGFwZS1yZW5kZXJpbmc9Imdlb21ldHJpY1ByZWNpc2lvbiI+PHRpdGxlPlNsYWNrPC90aXRsZT48ZyBmaWxsPSJub25lIj48cGF0aCBkPSJNMCwwIEwwLDEwIEwxMCwxMCBMMTAsMCB6IiBmaWxsPSIjZWNiMTJmIi8+PC9nPjwvc3ZnPg=="
+    "contents" : "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tIFVwbG9hZGVkIHRvOiBTVkcgUmVwbywgd3d3LnN2Z3JlcG8uY29tLCBHZW5lcmF0b3I6IFNWRyBSZXBvIE1peGVyIFRvb2xzIC0tPgo8c3ZnIGZpbGw9IiMwMDAwMDAiIHdpZHRoPSI4MDBweCIgaGVpZ2h0PSI4MDBweCIgdmlld0JveD0iMCAwIDMyIDMyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0gNSA1IEwgNSA5IEMgMTQuOTMgOSAyMyAxNy4wNyAyMyAyNyBMIDI3IDI3IEMgMjcgMTQuODUgMTcuMTUgNSA1IDUgeiBNIDUgMTIgTCA1IDE2IEMgMTEuMDcgMTYgMTYgMjAuOTMgMTYgMjcgTCAyMCAyNyBDIDIwIDE4LjcyIDEzLjI4IDEyIDUgMTIgeiBNIDggMjEgQSAzIDMgMCAwIDAgOCAyNyBBIDMgMyAwIDAgMCA4IDIxIHoiLz48L3N2Zz4="
   }
 }

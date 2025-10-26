@@ -3,10 +3,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <name>connector-template</name>
-    <description>Camunda Connector Template</description>
+    <name>RSS Feed Connector</name>
+    <description>Camunda RSS Feed Connector - Fetches and parses RSS feed data</description>
     <groupId>io.camunda.connector</groupId>
-    <artifactId>connector-template</artifactId>
+    <artifactId>connector-rssfeed</artifactId>
     <packaging>jar</packaging>
     <version>0.1.0-SNAPSHOT</version>
 
@@ -36,6 +36,13 @@
             <groupId>io.camunda.connector</groupId>
             <artifactId>element-template-generator-core</artifactId>
             <version>${version.connectors}</version>
+        </dependency>
+
+        <!-- RSS/Atom feed parsing -->
+        <dependency>
+            <groupId>com.rometools</groupId>
+            <artifactId>rome</artifactId>
+            <version>2.1.0</version>
         </dependency>
 
         <!-- test dependencies -->
@@ -113,11 +120,11 @@
                 <configuration>
                     <connectors>
                         <connector>
-                            <connectorClass>io.camunda.example.MyConnectorFunction</connectorClass>
+                            <connectorClass>io.camunda.connector.rssfeed.RssFeedConnectorFunction</connectorClass>
                             <files>
                                 <file>
-                                    <templateId>io.camunda.connector.Template.v1</templateId>
-                                    <templateFileName>template-connector.json</templateFileName>
+                                    <templateId>io.camunda.connector.rssfeed.v1</templateId>
+                                    <templateFileName>rss-feed-connector.json</templateFileName>
                                 </file>
                             </files>
                         </connector>
