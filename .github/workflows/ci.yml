@@ -150,10 +150,11 @@ jobs:
       - name: Generate release notes
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#v}  # Strip 'v' prefix
           echo "# Release ${TAG_NAME}" > release-notes.md
           if [ -f CHANGELOG.md ]; then
-            # Extract release notes for this version from CHANGELOG
-            awk "/^## \["${TAG_NAME}"\]/,/^## /" CHANGELOG.md | head -n -1 >> release-notes.md || true
+            # Extract release notes for this version from CHANGELOG (without 'v' prefix in search)
+            awk "/^## \["${VERSION}"\]/,/^## /" CHANGELOG.md | head -n -1 >> release-notes.md || true
           else
             echo "Initial stable release" >> release-notes.md
           fi
