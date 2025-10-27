@@ -1,3 +1,13 @@
+This Connector is developed by Camunda's partners or independent third-party developers.
+To receive assistance or support for the RSS Feed Connector, contact Aleksander Dytko directly
+using the contact information available at https://github.com/aleksander-dytko/RSS-Feed-Connector/issues.
+Camunda disclaims any support obligation for the Connector.
+
+By installing this connector, you consent to Camunda sharing your contact information with the
+developer of this connector so that you can receive more information about it directly from the developer.
+
+================================================================================
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -186,7 +196,7 @@
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright [yyyy] [name of copyright owner]
+   Copyright 2025 Aleksander Dytko
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.

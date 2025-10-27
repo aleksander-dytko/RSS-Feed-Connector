@@ -1,5 +1,7 @@
 # RSS Feed Connector for Camunda 8
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 A Camunda 8 Outbound Connector that fetches and parses RSS feed data from a specified URL with optional filtering capabilities.
 
 ## Overview
