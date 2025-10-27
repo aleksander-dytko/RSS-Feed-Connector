@@ -1,12 +1,36 @@
-# RSS Feed Connector for Camunda 8
+<div align="center">
+  <img src="assets/icon.svg" alt="RSS Feed Connector Icon" width="120" height="120">
+  <h1>RSS Feed Connector for Camunda 8</h1>
+  
+  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+  
+  <p><strong>Integrate RSS/Atom feeds into your Camunda 8 BPMN processes with powerful filtering capabilities</strong></p>
+</div>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-
-A Camunda 8 Outbound Connector that fetches and parses RSS feed data from a specified URL with optional filtering capabilities.
+---
 
 ## Overview
 
 The RSS Feed Connector allows you to integrate RSS/Atom feeds into your Camunda 8 BPMN processes. It fetches feed content, parses it, and returns structured data that can be used in your workflow automation.
+
+## 📋 Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Build](#build)
+- [API Reference](#api-reference)
+  - [Input Parameters](#input-parameters)
+  - [Output Structure](#output-structure)
+  - [Error Codes](#error-codes)
+- [Configuration](#configuration)
+- [Usage Examples](#usage-examples)
+- [Visual Guide](#visual-guide)
+- [Testing](#testing-the-connector)
+- [Deployment](#hosting-custom-connectors)
+- [Troubleshooting](#troubleshooting)
+- [Technical Details](#technical-details)
+- [Contributing](#contributing)
+- [License](#license)
 
 ### Features
 
@@ -17,6 +41,23 @@ The RSS Feed Connector allows you to integrate RSS/Atom feeds into your Camunda 
 - ✅ Graceful handling of incomplete or malformed feed items
 - ✅ Comprehensive error handling with specific error codes
 - ✅ Support for standard RSS fields: title, link, description, published date, author, categories, GUID
+
+## Quick Start
+
+The connector includes a convenient runner script for different environments:
+
+```bash
+# Run connector connected to Camunda SaaS
+./run-connector.sh saas
+
+# Run connector connected to local Camunda Platform
+./run-connector.sh local
+
+# Run unit tests
+./run-connector.sh test
+```
+
+For detailed deployment instructions, see the [Hosting Custom Connectors](#hosting-custom-connectors) section.
 
 ## Build
 
@@ -32,7 +73,7 @@ This creates:
 
 The element template is automatically generated during the build process and placed in `element-templates/rss-feed-connector.json`.
 
-## API
+## API Reference
 
 ### Input Parameters
 
@@ -128,7 +169,7 @@ For memory safety, the connector processes a maximum of **500 items** from any R
 
 The `maxItems` parameter controls how many items are returned **after** filtering. This is applied after date range filtering and sorting.
 
-## Usage Example
+## Usage Examples
 
 ### Basic Usage
 
@@ -247,7 +288,7 @@ Get items from the last 7 days using FEEL's `today()` function:
 2. Apply the "RSS Feed Connector" element template
 3. Configure the input parameters:
 
-![RSS Feed Process Example](img/process.png)
+![RSS Feed Process Example](assets/screenshots/diagram.png)
 
 ```json
 {
@@ -276,6 +317,38 @@ Here are some publicly available RSS feeds you can use for testing:
 | Hacker News     | `https://news.ycombinator.com/rss`                           |
 | NASA Breaking   | `https://www.nasa.gov/rss/dyn/breaking_news.rss`             |
 
+## Visual Guide
+
+### Configure in Camunda Modeler
+
+The RSS Feed Connector appears in Camunda Modeler with a custom icon and intuitive configuration panel:
+
+<div align="center">
+  <img src="assets/screenshots/Modeler.png" alt="RSS Feed Connector in Camunda Modeler" width="800">
+  <p><em>Configure the RSS Feed Connector in Camunda Modeler with the custom element template</em></p>
+</div>
+
+**Configuration Steps:**
+1. Add a Service Task to your BPMN diagram
+2. Apply the "RSS Feed Connector" element template
+3. Configure input parameters (feedUrl, maxItems, fromDate, toDate)
+4. Set the result variable name (e.g., `feedResult`)
+
+### Monitor in Camunda Operate
+
+Track your RSS Feed Connector executions in Camunda Operate:
+
+<div align="center">
+  <img src="assets/screenshots/Operate.png" alt="RSS Feed Connector in Camunda Operate" width="800">
+  <p><em>Monitor RSS Feed Connector execution and results in Camunda Operate</em></p>
+</div>
+
+**What you can see in Operate:**
+- Process instance execution status
+- Input parameters used (feedUrl, filters)
+- Output results (items fetched, metadata)
+- Error details if the connector fails
+
 ## Testing the Connector
 
 ### Run Unit Tests
@@ -292,6 +365,8 @@ The test suite includes:
 - MaxItems limiting
 - Sorting verification
 - Missing field handling
+
+## Deployment
 
 ### Hosting Custom Connectors
 
@@ -470,9 +545,9 @@ docker stop CustomConnectorInSMCore  # For local Docker approach
 docker stop CustomConnectorInSaaS    # For SaaS approach
 ```
 
-### Troubleshooting
+## Troubleshooting
 
-#### Common Issues
+### Common Issues
 
 **1. Authentication Errors (SaaS)**
 - **Symptom**: `401 Unauthorized` or authentication failures
@@ -493,7 +568,7 @@ docker stop CustomConnectorInSaaS    # For SaaS approach
 - **Symptom**: Error loading connector JAR
 - **Solution**: Ensure the connector JAR is built (`mvn clean package`) and the path in the Docker volume mount is correct
 
-#### RSS Feed Specific Issues
+### RSS Feed Specific Issues
 
 **5. Feed Timeout Errors**
 - **Symptom**: `FETCH_ERROR` with timeout message
@@ -548,7 +623,7 @@ docker stop CustomConnectorInSaaS    # For SaaS approach
     else "Unknown Feed"
   ```
 
-#### Debugging
+### Debugging
 
 **Check Connector Logs**
 
@@ -600,20 +675,6 @@ Check for:
 - Content-Type: application/rss+xml or application/xml
 - Valid XML response (not HTML error page)
 
-## Quick Start
-
-The connector includes a convenient runner script for different environments:
-
-```bash
-# Run connector connected to Camunda SaaS
-./run-connector.sh saas
-
-# Run connector connected to local Camunda Platform
-./run-connector.sh local
-
-# Run unit tests
-./run-connector.sh test
-```
 
 ## Element Template
 
