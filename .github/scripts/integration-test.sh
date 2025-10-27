@@ -51,10 +51,15 @@ echo "✅ Process instance created (key: ${PROCESS_INSTANCE_KEY})"
 # Step 3: Poll for completion
 echo "⏳ Waiting for process to complete (max ${MAX_WAIT_TIME}s)..."
 ELAPSED=0
-STATE=""
+STATE="UNKNOWN"
 while [ $ELAPSED -lt $MAX_WAIT_TIME ]; do
-  STATUS_RESPONSE=$(curl -s "${ORCHESTRATE_URL}/v2/process-instances/${PROCESS_INSTANCE_KEY}")
-  STATE=$(echo "$STATUS_RESPONSE" | grep -o '"state":"[^"]*"' | cut -d'"' -f4)
+  STATUS_RESPONSE=$(curl -s "${ORCHESTRATE_URL}/v2/process-instances/${PROCESS_INSTANCE_KEY}" || echo '{}')
+  STATE=$(echo "$STATUS_RESPONSE" | grep -o '"state":"[^"]*"' | cut -d'"' -f4 || echo "")
+  
+  # Handle empty state gracefully
+  if [ -z "$STATE" ]; then
+    STATE="UNKNOWN"
+  fi
   
   if [ "$STATE" == "COMPLETED" ]; then
     echo "✅ Process completed successfully!"
