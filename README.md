@@ -57,14 +57,25 @@ The element template is automatically generated during the build process and pla
     }
   ],
   "totalItems": 150,
-  "filteredItems": 10
+  "filteredItems": 10,
+  "metadata": {
+    "title": "BBC News - Home",
+    "description": "BBC News RSS feed",
+    "link": "https://www.bbc.co.uk/news/",
+    "lastBuildDate": "2025-10-26T15:30:00Z"
+  }
 }
 ```
 
 **Field Descriptions:**
 - `items`: Array of RSS feed items after filtering and limiting
-- `totalItems`: Total number of items in the original feed
+- `totalItems`: Total number of items in the original feed before filtering (max 500, see [Limits](#limits))
 - `filteredItems`: Number of items after applying filters and limits
+- `metadata`: Information about the RSS feed itself
+  - `title`: Feed title (e.g., "BBC News - Home")
+  - `description`: Feed description
+  - `link`: Link to the feed's website
+  - `lastBuildDate`: When the feed was last updated (ISO 8601 format)
 
 ### Error Codes
 
@@ -74,8 +85,159 @@ The element template is automatically generated during the build process and pla
 | `FETCH_ERROR`        | Failed to fetch the feed (network or server error)             | Verify the URL is accessible              |
 | `PARSE_ERROR`        | Failed to parse the feed (invalid RSS/Atom XML)                | Ensure the feed is valid RSS/Atom format  |
 | `INVALID_DATE_FORMAT`| The fromDate or toDate is not in ISO8601 format                | Use format: `2025-01-01T00:00:00Z`        |
+| `INVALID_DATE_RANGE` | The fromDate is after toDate                                   | Ensure fromDate ≤ toDate                  |
+
+## Configuration
+
+### Timeout Settings
+
+The connector includes built-in timeout protection to prevent hanging connections:
+
+- **Connection Timeout**: 10 seconds - Maximum time to establish a connection to the RSS feed server
+- **Request Timeout**: 30 seconds - Maximum time to complete the entire request (including data transfer)
+
+These timeouts protect against:
+- Slow or unresponsive servers
+- Network issues
+- Malicious servers attempting to keep connections open
+
+**Note**: Timeouts are not currently configurable but may be made adjustable via environment variables in future versions.
+
+### Limits
+
+#### Feed Size Limit (500 Items)
+
+For memory safety, the connector processes a maximum of **500 items** from any RSS feed. This limit applies before any filtering:
+
+- If a feed contains more than 500 items, only the first 500 are processed
+- A warning is logged when truncation occurs: `Feed contains X items, but only 500 items will be processed`
+- The `totalItems` field in the response reflects the truncated count (max 500)
+
+**Recommendations:**
+- Use date filters (`fromDate`, `toDate`) to reduce the result set at the source
+- Monitor logs for truncation warnings
+- Consider using feed pagination if available from the source
+
+#### MaxItems Parameter Limit
+
+- **Minimum**: 1
+- **Maximum**: 500
+- **Default**: 10
+
+The `maxItems` parameter controls how many items are returned **after** filtering. This is applied after date range filtering and sorting.
 
 ## Usage Example
+
+### Basic Usage
+
+Fetch the 5 most recent items from a feed:
+
+```json
+{
+  "feedUrl": "https://feeds.bbci.co.uk/news/rss.xml",
+  "maxItems": 5
+}
+```
+
+### Using Feed Metadata
+
+Access feed metadata in your BPMN process to display or store feed information:
+
+**BPMN Configuration:**
+```json
+{
+  "feedUrl": "https://techcrunch.com/feed/",
+  "maxItems": 10
+}
+```
+
+**Accessing Metadata in Process Variables:**
+```javascript
+// Get feed title
+= feedResult.metadata.title
+
+// Get feed description
+= feedResult.metadata.description
+
+// Get feed last update time
+= feedResult.metadata.lastBuildDate
+
+// Display feed info in user task
+= "Latest from " + feedResult.metadata.title + " (" + feedResult.filteredItems + " items)"
+```
+
+### Date Filtering Examples
+
+#### Filter by Date Range
+
+Get articles from a specific week:
+
+```json
+{
+  "feedUrl": "https://feeds.bbci.co.uk/news/rss.xml",
+  "maxItems": 50,
+  "fromDate": "2025-10-20T00:00:00Z",
+  "toDate": "2025-10-26T23:59:59Z"
+}
+```
+
+#### Recent Items Only (using FEEL expressions)
+
+Get items from the last 7 days using FEEL's `today()` function:
+
+```json
+{
+  "feedUrl": "https://feeds.bbci.co.uk/news/rss.xml",
+  "maxItems": 20,
+  "fromDate": "=today() - duration(\"P7D\")"
+}
+```
+
+#### Items from Today
+
+```json
+{
+  "feedUrl": "https://www.theguardian.com/world/rss",
+  "maxItems": 30,
+  "fromDate": "=today()"
+}
+```
+
+### Processing Results in BPMN
+
+**Example: Send Email with Latest News**
+
+```javascript
+// In an email task, build a summary of the latest articles
+= "Daily News Summary\n\n" + 
+  "Source: " + feedResult.metadata.title + "\n" +
+  "Latest " + feedResult.filteredItems + " articles:\n\n" +
+  for item in feedResult.items return 
+    "• " + item.title + "\n  " + item.link + "\n"
+```
+
+**Example: Filter by Category in Process**
+
+```javascript
+// Filter items that have "Technology" category
+= feedResult.items[item.categories contains "Technology"]
+
+// Count items in a specific category
+= count(feedResult.items[item.categories contains "Business"])
+```
+
+**Example: Store First Article Details**
+
+```javascript
+// Get first article title
+= feedResult.items[1].title
+
+// Get first article link
+= feedResult.items[1].link
+
+// Get first article published date
+= feedResult.items[1].publishedDate
+```
 
 ### BPMN Configuration
 
@@ -310,26 +472,131 @@ docker stop CustomConnectorInSaaS    # For SaaS approach
 
 #### Common Issues
 
-1. **Authentication Errors**: Ensure your SaaS credentials are correct and use the proper environment variable names:
-   - `CAMUNDA_CLIENT_AUTH_CLIENT_ID` (not `CAMUNDA_CLIENT_CLOUD_CLIENT-ID`)
-   - `CAMUNDA_CLIENT_AUTH_CLIENT_SECRET` (not `CAMUNDA_CLIENT_CLOUD_CLIENT-SECRET`)
-   - `CAMUNDA_CLIENT_CLOUD_CLUSTER_ID` (not `CAMUNDA_CLIENT_CLOUD_CLUSTER-ID`)
-2. **Network Issues**: Use `--network=host` for local Docker approach
-3. **Version Mismatch**: Ensure you're using `camunda/connectors-bundle:8.8.1` or compatible version
-4. **JAR Not Found**: Ensure the connector JAR is built and the path is correct
+**1. Authentication Errors (SaaS)**
+- **Symptom**: `401 Unauthorized` or authentication failures
+- **Solution**: Ensure your SaaS credentials are correct and use the proper environment variable names:
+  - `CAMUNDA_CLIENT_AUTH_CLIENT_ID` (not `CAMUNDA_CLIENT_CLOUD_CLIENT-ID`)
+  - `CAMUNDA_CLIENT_AUTH_CLIENT_SECRET` (not `CAMUNDA_CLIENT_CLOUD_CLIENT-SECRET`)
+  - `CAMUNDA_CLIENT_CLOUD_CLUSTER_ID` (not `CAMUNDA_CLIENT_CLOUD_CLUSTER-ID`)
 
-#### Logs
+**2. Network Issues (Local Docker)**
+- **Symptom**: Cannot connect to localhost services
+- **Solution**: Use `--network=host` for local Docker approach
 
-Check connector logs for detailed information:
+**3. Version Mismatch**
+- **Symptom**: Connector fails to load or behaves unexpectedly
+- **Solution**: Ensure you're using `camunda/connectors-bundle:8.8.1` or compatible version
+
+**4. JAR Not Found**
+- **Symptom**: Error loading connector JAR
+- **Solution**: Ensure the connector JAR is built (`mvn clean package`) and the path in the Docker volume mount is correct
+
+#### RSS Feed Specific Issues
+
+**5. Feed Timeout Errors**
+- **Symptom**: `FETCH_ERROR` with timeout message
+- **Cause**: Feed server is slow or unresponsive
+- **Solution**: 
+  - Verify the feed URL is accessible from your network
+  - Check if the feed server has rate limiting
+  - The connector has 10s connection timeout and 30s request timeout
+  - Consider using a different feed source if the issue persists
+
+**6. Invalid Feed Format**
+- **Symptom**: `PARSE_ERROR` - "Failed to parse RSS feed"
+- **Cause**: Feed is not valid RSS/Atom XML
+- **Solution**:
+  - Validate the feed URL in a browser or RSS reader
+  - Check if the feed returns HTML error pages instead of XML
+  - Ensure the feed follows RSS 2.0 or Atom standards
+
+**7. Empty Results Despite Data in Feed**
+- **Symptom**: `filteredItems: 0` when feed has content
+- **Possible Causes**:
+  - Date filters are too restrictive (fromDate/toDate)
+  - Date range is inverted (fromDate > toDate) - now returns `INVALID_DATE_RANGE` error
+- **Solution**:
+  - Check your date filters are correct
+  - Verify feed items have publication dates
+  - Remove date filters temporarily to test
+
+**8. Truncated Results (Large Feeds)**
+- **Symptom**: `totalItems: 500` but feed has more items
+- **Cause**: Safety limit of 500 items (see [Limits](#limits))
+- **Solution**:
+  - Use date filters to reduce the result set: `fromDate`, `toDate`
+  - Check connector logs for truncation warning
+  - Consider fetching feed in smaller date ranges
+
+**9. Invalid Date Format**
+- **Symptom**: `INVALID_DATE_FORMAT` error
+- **Cause**: Date not in ISO 8601 format
+- **Solution**: Use correct format:
+  - Standard: `2025-01-01T00:00:00Z`
+  - Date only: `2025-01-01` (assumes start of day UTC)
+  - FEEL expression: `=today()` or `=now()`
+
+**10. Missing Metadata Fields**
+- **Symptom**: `metadata` fields are null
+- **Cause**: Feed doesn't provide optional metadata
+- **Solution**: This is normal - handle null values in your process:
+  ```javascript
+  = if feedResult.metadata.title != null 
+    then feedResult.metadata.title 
+    else "Unknown Feed"
+  ```
+
+#### Debugging
+
+**Check Connector Logs**
+
+For detailed information about what's happening:
 ```bash
 docker logs CustomConnectorInSMCore  # For local Docker
 docker logs CustomConnectorInSaaS    # For SaaS
+docker logs -f CustomConnectorInSaaS  # Follow logs in real-time
 ```
 
-Look for the line confirming your connector is loaded:
+**Look for Key Log Messages:**
+
+✅ Success indicators:
 ```
 Starting job worker: JobWorkerValue{type='io.camunda:rssfeed:1', name='RssFeedConnector', ...}
+Executing RSS Feed Connector [processInstanceKey=123456] with URL: ...
+Parsed 35 items, filtered to 10 items
 ```
+
+⚠️ Warning indicators:
+```
+Feed contains 1000 items, but only 500 items will be processed due to safety limit
+```
+
+❌ Error indicators:
+```
+ERROR ... Failed to fetch RSS feed from URI: ... Network or server error: ...
+ERROR ... Failed to parse RSS feed. The content may not be valid RSS/Atom XML: ...
+```
+
+**Enable Debug Logging**
+
+Add to your connector startup:
+```bash
+-e LOGGING_LEVEL_IO_CAMUNDA_CONNECTOR_RSSFEED=DEBUG
+```
+
+This will show additional details about feed processing, filtering, and item conversion.
+
+**Test Feed Manually**
+
+Before debugging the connector, verify the feed works:
+```bash
+curl -v "https://feeds.bbci.co.uk/news/rss.xml"
+```
+
+Check for:
+- HTTP 200 status code
+- Content-Type: application/rss+xml or application/xml
+- Valid XML response (not HTML error page)
 
 ## Quick Start
 

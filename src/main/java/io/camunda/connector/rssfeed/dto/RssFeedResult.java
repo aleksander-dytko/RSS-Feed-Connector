@@ -19,6 +19,11 @@ public record RssFeedResult(
     /**
      * Number of items after applying filters and limits.
      */
-    int filteredItems
+    int filteredItems,
+
+    /**
+     * Metadata about the RSS feed itself (title, description, link, etc.).
+     */
+    FeedMetadata metadata
 ) {}
 

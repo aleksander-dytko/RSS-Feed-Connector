@@ -50,11 +50,12 @@ public record RssFeedRequest(
     /**
      * Filter items published on or after this date.
      * Must be in ISO 8601 format (e.g., "2025-01-01T00:00:00Z").
+     * Supports FEEL expressions like today() or now().
      */
     @TemplateProperty(
         group = "configuration",
         label = "From Date",
-        description = "Filter items published on or after this date (ISO8601 format, e.g., 2025-01-01T00:00:00Z)",
+        description = "Filter items published on or after this date (ISO8601 format, e.g., 2025-01-01T00:00:00Z or FEEL: today())",
         optional = true,
         type = PropertyType.String
     )
@@ -63,21 +64,24 @@ public record RssFeedRequest(
     /**
      * Filter items published on or before this date.
      * Must be in ISO 8601 format (e.g., "2025-12-31T23:59:59Z").
+     * Supports FEEL expressions like today() or now().
      */
     @TemplateProperty(
         group = "configuration",
         label = "To Date",
-        description = "Filter items published on or before this date (ISO8601 format, e.g., 2025-12-31T23:59:59Z)",
+        description = "Filter items published on or before this date (ISO8601 format, e.g., 2025-12-31T23:59:59Z or FEEL: today())",
         optional = true,
         type = PropertyType.String
     )
     String toDate
 ) {
+    private static final int DEFAULT_MAX_ITEMS = 10;
+
     /**
      * Get the maximum number of items, with a default of 10 if not specified.
      */
     public int getMaxItemsOrDefault() {
-        return maxItems != null ? maxItems : 10;
+        return maxItems != null ? maxItems : DEFAULT_MAX_ITEMS;
     }
     
     /**

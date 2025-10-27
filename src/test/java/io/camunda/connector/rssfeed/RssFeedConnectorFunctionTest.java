@@ -416,6 +416,48 @@ class RssFeedConnectorFunctionTest {
         );
     }
 
+    @Test
+    void shouldIncludeFeedMetadata() {
+        // Given
+        URL feedUrl = getTestResourceUrl("test-feed.xml");
+        var context = OutboundConnectorContextBuilder.create()
+            .variables(new RssFeedRequest(feedUrl.toString(), 10, null, null))
+            .build();
+
+        // When
+        RssFeedResult result = (RssFeedResult) connector.execute(context);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.metadata()).isNotNull();
+        assertThat(result.metadata().title()).isEqualTo("Test RSS Feed");
+        assertThat(result.metadata().description()).isEqualTo("A test RSS feed for unit testing");
+        assertThat(result.metadata().link()).isEqualTo("https://example.com");
+    }
+
+    @Test
+    void shouldThrowErrorWhenFromDateAfterToDate() {
+        // Given
+        URL feedUrl = getTestResourceUrl("test-feed.xml");
+        var context = OutboundConnectorContextBuilder.create()
+            .variables(new RssFeedRequest(
+                feedUrl.toString(),
+                10,
+                "2025-10-25T00:00:00Z",  // fromDate is AFTER toDate
+                "2025-10-20T00:00:00Z"   // toDate
+            ))
+            .build();
+
+        // When & Then
+        assertThatThrownBy(() -> connector.execute(context))
+            .isInstanceOf(ConnectorException.class)
+            .satisfies(e -> {
+                ConnectorException ce = (ConnectorException) e;
+                assertThat(ce.getErrorCode()).isEqualTo("INVALID_DATE_RANGE");
+            })
+            .hasMessageContaining("fromDate must be before or equal to toDate");
+    }
+
     /**
      * Helper method to get a test resource file URL.
      */

@@ -40,6 +40,14 @@
     },
     "type" : "Hidden"
   }, {
+    "id" : "DEFAULT_MAX_ITEMS",
+    "label" : "DEFAULT_MAX_ITEMS",
+    "binding" : {
+      "name" : "DEFAULT_MAX_ITEMS",
+      "type" : "zeebe:input"
+    },
+    "type" : "Number"
+  }, {
     "id" : "feedUrl",
     "label" : "Feed URL",
     "description" : "The URL of the RSS feed to fetch (e.g., https://feeds.bbci.co.uk/news/rss.xml)",
@@ -70,7 +78,7 @@
   }, {
     "id" : "fromDate",
     "label" : "From Date",
-    "description" : "Filter items published on or after this date (ISO8601 format, e.g., 2025-01-01T00:00:00Z)",
+    "description" : "Filter items published on or after this date (ISO8601 format, e.g., 2025-01-01T00:00:00Z or FEEL: today())",
     "optional" : true,
     "feel" : "optional",
     "group" : "configuration",
@@ -82,7 +90,7 @@
   }, {
     "id" : "toDate",
     "label" : "To Date",
-    "description" : "Filter items published on or before this date (ISO8601 format, e.g., 2025-12-31T23:59:59Z)",
+    "description" : "Filter items published on or before this date (ISO8601 format, e.g., 2025-12-31T23:59:59Z or FEEL: today())",
     "optional" : true,
     "feel" : "optional",
     "group" : "configuration",
