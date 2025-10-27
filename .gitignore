@@ -63,6 +63,15 @@ build/
 .env
 request*.json
 
+# Security: SaaS configuration files with sensitive credentials
+src/test/resources/application-saas.properties
+src/main/resources/application-saas.properties
+*.saas.properties
+.env.local
+.env.production
+
+# Note: application-local.properties contains only non-sensitive local dev settings and can be committed
+
 element-templates/.DS_Store
 .DS_Store
 

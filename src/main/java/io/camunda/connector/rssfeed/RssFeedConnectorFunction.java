@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
     version = 1,
     description = "Fetches and parses RSS feed data from a specified URL",
     icon = "icon.svg",
-    documentationRef = "https://github.com/camunda/RSS-Feed-Connector",
+    documentationRef = "https://github.com/aleksander-dytko/RSS-Feed-Connector",
     propertyGroups = {
         @ElementTemplate.PropertyGroup(id = "configuration", label = "Configuration")
     },

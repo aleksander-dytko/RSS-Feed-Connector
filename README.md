@@ -112,7 +112,7 @@ Here are some publicly available RSS feeds you can use for testing:
 | Hacker News     | `https://news.ycombinator.com/rss`                           |
 | NASA Breaking   | `https://www.nasa.gov/rss/dyn/breaking_news.rss`             |
 
-## Test Locally
+## Testing the Connector
 
 ### Run Unit Tests
 
@@ -129,90 +129,222 @@ The test suite includes:
 - Sorting verification
 - Missing field handling
 
-### Test with Local Camunda Runtime
+### Hosting Custom Connectors
+
+Based on the [Camunda documentation](https://docs.camunda.io/docs/components/connectors/custom-built-connectors/host-custom-connectors/), there are several ways to host your custom RSS Feed Connector. We've tested both local Docker and SaaS approaches successfully.
 
 #### Prerequisites
 
-1. [Camunda Desktop Modeler](https://camunda.com/download/modeler/)
-2. [Docker Compose](https://docs.docker.com/compose/) version 1.27.0 or later
-3. [Docker](https://www.docker.com/products/docker-desktop) version 20.10.16 or later
+1. **Build the connector**: First, build the fat JAR with all dependencies:
+   ```bash
+   mvn clean package
+   ```
+   This creates `target/connector-rssfeed-0.1.0-SNAPSHOT.jar` (the fat JAR with dependencies).
 
-#### Setup
+2. **Docker**: Ensure Docker is installed and running
+3. **Camunda Cluster**: Either a local Docker cluster or SaaS cluster
 
-1. Clone the [Camunda 8 Distributions repository](https://github.com/camunda/camunda-distributions) and navigate to the appropriate version directory:
+### Approach 1: Local Docker Cluster (without Keycloak)
+
+This approach uses Docker with plaintext security for local development.
+
+#### Setup Local Camunda Cluster
+
+1. Clone the [Camunda 8 Distributions repository](https://github.com/camunda/camunda-distributions):
+   ```bash
+   git clone https://github.com/camunda/camunda-distributions.git
+   cd camunda-distributions/docker-compose/versions/camunda-8.8
+   ```
+
+2. Start Camunda 8 with Docker Compose:
+   ```bash
+   docker compose up -d
+   ```
+
+3. Verify the cluster is running:
+   ```bash
+   docker ps | grep camunda
+   ```
+   You should see containers for `orchestration` and `connectors`.
+
+#### Deploy Your Custom Connector
+
+Run your RSS Feed Connector using the connectors-bundle Docker image:
 
 ```bash
-git clone https://github.com/camunda/camunda-distributions.git
-cd camunda-distributions/versions/camunda-8.8
+docker run --rm --name=CustomConnectorInSMCore \
+    -v $PWD/target/connector-rssfeed-0.1.0-SNAPSHOT.jar:/opt/app/connector.jar \
+    --network=host \
+    -e CAMUNDA_CLIENT_BROKER_GATEWAY-ADDRESS=localhost:26500 \
+    -e CAMUNDA_CLIENT_SECURITY_PLAINTEXT=true \
+    -e CAMUNDA_OPERATE_CLIENT_URL=http://localhost:8088 \
+    -e CAMUNDA_OPERATE_CLIENT_USERNAME=demo \
+    -e CAMUNDA_OPERATE_CLIENT_PASSWORD=demo \
+    camunda/connectors-bundle:8.8.1
 ```
 
-**Note**: This connector requires Camunda 8.8 or later. Replace `camunda-8.8` with your desired version (e.g., `camunda-8.9`).
+**Key points:**
+- `--network=host`: Allows the connector to connect to localhost services
+- `CAMUNDA_CLIENT_SECURITY_PLAINTEXT=true`: Uses plaintext security for local development
+- `camunda/connectors-bundle:8.8.1`: Uses the correct version tag
 
-2. Start Camunda 8 with Docker Compose (lightweight configuration):
+#### Verify Success
+
+In the logs, you should see:
+```
+Starting job worker: JobWorkerValue{type='io.camunda:rssfeed:1', name='RssFeedConnector', ...}
+```
+
+This confirms your RSS Feed Connector is loaded and ready to process jobs.
+
+#### Access Camunda Components
+
+- **Operate**: [http://localhost:8088/operate](http://localhost:8088/operate) - Monitor process instances
+- **Tasklist**: [http://localhost:8088/tasklist](http://localhost:8088/tasklist) - Complete user tasks
+- Login with username: `demo`, password: `demo`
+
+### Approach 2: Camunda SaaS Cluster
+
+This approach connects your custom connector to a Camunda SaaS cluster.
+
+#### Prerequisites
+
+1. **SaaS Cluster**: Create a cluster at [Camunda SaaS Console](https://console.camunda.io)
+2. **API Credentials**: Create a client with `zeebe` scope and copy the credentials
+3. **Update Configuration**: Update `src/test/resources/application.properties` with your SaaS credentials
+
+#### Deploy Your Custom Connector
+
+Run your RSS Feed Connector connected to SaaS:
 
 ```bash
-docker compose up -d
+docker run --rm --name=CustomConnectorInSaaS \
+    -v $PWD/target/connector-rssfeed-0.1.0-SNAPSHOT.jar:/opt/app/connector.jar \
+    -e CAMUNDA_CLIENT_SECURITY_PLAINTEXT=false \
+    -e CAMUNDA_CLIENT_AUTH_CLIENT_ID='<YOUR_CLIENT_ID>' \
+    -e CAMUNDA_CLIENT_AUTH_CLIENT_SECRET='<YOUR_CLIENT_SECRET>' \
+    -e CAMUNDA_CLIENT_CLOUD_CLUSTER_ID='<YOUR_CLUSTER_ID>' \
+    -e CAMUNDA_CLIENT_CLOUD_REGION='<YOUR_CLUSTER_REGION>' \
+    -e CAMUNDA_OPERATE_CLIENT_URL='https://<region>.operate.camunda.io/<cluster-id>' \
+    camunda/connectors-bundle:8.8.1
 ```
 
-For the full configuration with all components (Optimize, Console, Web Modeler):
+**Replace the following with your actual SaaS credentials:**
+- `<YOUR_CLUSTER_ID>`: Your cluster ID from the SaaS console
+- `<YOUR_CLIENT_ID>`: Your client ID
+- `<YOUR_CLIENT_SECRET>`: Your client secret
+- `<YOUR_CLUSTER_REGION>`: Your cluster region (e.g., `bru-2`, `us-1`)
 
-```bash
-docker compose -f docker-compose-full.yaml up -d
+#### Verify Success
+
+In the logs, you should see:
+```
+Starting job worker: JobWorkerValue{type='io.camunda:rssfeed:1', name='RssFeedConnector', ...}
 ```
 
-3. Deploy your custom RSS Feed Connector:
+This confirms your RSS Feed Connector is loaded and ready to process jobs. The connector will successfully authenticate with the SaaS cluster and start polling for jobs.
 
-**Option 1: Mount connector JAR as volume**
+### Approach 3: Local Development with Spring Boot
 
-Add the following to your `docker-compose.yaml` under the `connectors` service:
+For development and testing, you can also run the connector directly with Spring Boot:
 
-```yaml
-volumes:
-  - ./target/connector-rssfeed-0.1.0-SNAPSHOT.jar:/opt/app/connector-rssfeed.jar
-```
+#### Local Development
 
-**Option 2: Create custom Docker image**
+1. **Start Local Camunda Cluster** (as described in Approach 1)
 
-See the [Connectors documentation](https://github.com/camunda/connectors) for bundling custom connectors.
+2. **Run the connector**:
+   ```bash
+   ./run-connector.sh local
+   ```
+   
+   Or manually:
+   ```bash
+   mvn exec:java -Dspring.config.additional-location=src/test/resources/application-local.properties
+   ```
 
-4. Install the element template:
+#### SaaS Development
+
+1. **Update SaaS credentials** in `src/test/resources/application.properties`
+
+2. **Run the connector**:
+   ```bash
+   ./run-connector.sh saas
+   ```
+   
+   Or manually:
+   ```bash
+   mvn exec:java
+   ```
+
+### Using the Connector in BPMN Processes
+
+1. **Install Element Template**:
    - Copy `element-templates/rss-feed-connector.json` to your Desktop Modeler's element templates directory
-   - See [Element Templates documentation](https://docs.camunda.io/docs/components/modeler/desktop-modeler/element-templates/configuring-templates/)
+   - Or upload it to Web Modeler
 
-5. Deploy a process from Desktop Modeler:
-   - Open Desktop Modeler and create a BPMN diagram
-   - Add a Service Task and apply the "RSS Feed Connector" template
-   - Configure the connector with a feed URL (e.g., `https://feeds.bbci.co.uk/news/rss.xml`)
-   - Click the deployment icon and configure:
-     - **Cluster endpoint**: `http://localhost:8088`
-     - **Authentication**: Select **None** (for lightweight config)
-   - Click **Deploy**
+2. **Create BPMN Process**:
+   - Add a Service Task to your BPMN diagram
+   - Apply the "RSS Feed Connector" element template
+   - Configure the input parameters (feedUrl, maxItems, fromDate, toDate)
 
-6. Access the Camunda components:
-   - **Operate**: [http://localhost:8088/operate](http://localhost:8088/operate) - Monitor process instances
-   - **Tasklist**: [http://localhost:8088/tasklist](http://localhost:8088/tasklist) - Complete user tasks
-   - Login with username: `demo`, password: `demo`
+3. **Deploy and Run**:
+   - Deploy your process to the cluster
+   - Start a process instance
+   - Monitor execution in Operate
 
-7. Stop Camunda and clean up (from the `camunda-distributions/versions/camunda-8.8` directory):
+### Cleanup
 
+#### Stop Local Cluster
 ```bash
+cd camunda-distributions/docker-compose/versions/camunda-8.8
 docker compose down -v
-# or for full configuration:
-docker compose -f docker-compose-full.yaml down -v
 ```
 
-**Note**: The `-v` flag removes all volumes and data. Omit it to preserve your data between restarts.
+#### Stop Connector Containers
+```bash
+docker stop CustomConnectorInSMCore  # For local Docker approach
+docker stop CustomConnectorInSaaS    # For SaaS approach
+```
 
-For more details, see the [Camunda 8 Docker Compose documentation](https://docs.camunda.io/docs/self-managed/quickstart/developer-quickstart/docker-compose/).
+### Troubleshooting
 
-### Test with Camunda SaaS
+#### Common Issues
 
-1. Navigate to [Camunda SaaS Console](https://console.camunda.io)
-2. Create a cluster and obtain API credentials
-3. Configure your `application.properties` with the cluster credentials
-4. Upload the element template to Web Modeler
-5. Create a BPMN diagram using the RSS Feed Connector
-6. Deploy and run your process
+1. **Authentication Errors**: Ensure your SaaS credentials are correct and use the proper environment variable names:
+   - `CAMUNDA_CLIENT_AUTH_CLIENT_ID` (not `CAMUNDA_CLIENT_CLOUD_CLIENT-ID`)
+   - `CAMUNDA_CLIENT_AUTH_CLIENT_SECRET` (not `CAMUNDA_CLIENT_CLOUD_CLIENT-SECRET`)
+   - `CAMUNDA_CLIENT_CLOUD_CLUSTER_ID` (not `CAMUNDA_CLIENT_CLOUD_CLUSTER-ID`)
+2. **Network Issues**: Use `--network=host` for local Docker approach
+3. **Version Mismatch**: Ensure you're using `camunda/connectors-bundle:8.8.1` or compatible version
+4. **JAR Not Found**: Ensure the connector JAR is built and the path is correct
+
+#### Logs
+
+Check connector logs for detailed information:
+```bash
+docker logs CustomConnectorInSMCore  # For local Docker
+docker logs CustomConnectorInSaaS    # For SaaS
+```
+
+Look for the line confirming your connector is loaded:
+```
+Starting job worker: JobWorkerValue{type='io.camunda:rssfeed:1', name='RssFeedConnector', ...}
+```
+
+## Quick Start
+
+The connector includes a convenient runner script for different environments:
+
+```bash
+# Run connector connected to Camunda SaaS
+./run-connector.sh saas
+
+# Run connector connected to local Camunda Platform
+./run-connector.sh local
+
+# Run unit tests
+./run-connector.sh test
+```
 
 ## Element Template
 
@@ -278,9 +410,21 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
+## Security
+
+This project implements secure credential management to protect sensitive data. See [SECURITY.md](SECURITY.md) for detailed security practices and setup instructions.
+
+**Quick Setup:**
+```bash
+./setup-credentials.sh
+# Edit src/test/resources/application-local.properties with your credentials
+./run-connector.sh saas
+```
+
 ## Support
 
 For questions or issues:
 - Review the [Camunda Connector SDK documentation](https://docs.camunda.io/docs/components/connectors/custom-built-connectors/connector-sdk/)
 - Check the [Element Templates documentation](https://docs.camunda.io/docs/components/modeler/element-templates/defining-templates/)
+- See [SECURITY.md](SECURITY.md) for credential management
 - Open an issue in this repository

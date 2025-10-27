@@ -1,4 +1,4 @@
-# RSS Feed Connector Configuration
+# RSS Feed Connector Configuration Template
 # Based on Camunda Connector SDK documentation
 # https://docs.camunda.io/docs/components/connectors/custom-built-connectors/connector-sdk/
 
@@ -6,7 +6,7 @@
 server.port=9898
 
 # Camunda SaaS Configuration
-# Uses environment variables for security - see application.properties.template for setup
+# Replace these values with your actual SaaS cluster credentials
 camunda.client.mode=saas
 camunda.client.auth.client-id=${CAMUNDA_CLIENT_ID:your-client-id-here}
 camunda.client.auth.client-secret=${CAMUNDA_CLIENT_SECRET:your-client-secret-here}
