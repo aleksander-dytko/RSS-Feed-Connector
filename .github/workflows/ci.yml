@@ -82,10 +82,15 @@ jobs:
           
       - name: Start connector in Docker
         run: |
+          # Find the JAR file
+          JAR_FILE=$(ls target/connector-rssfeed-*.jar)
+          echo "Found JAR: $JAR_FILE"
+          ls -lh "$JAR_FILE"
+          
           docker run -d \
             --name rssfeed-connector \
             --network host \
-            -v $PWD/target/connector-rssfeed-*.jar:/opt/app/connector.jar \
+            -v $(pwd)/$JAR_FILE:/opt/app/connector.jar \
             -e CAMUNDA_CLIENT_BROKER_GATEWAY_ADDRESS=localhost:26500 \
             -e CAMUNDA_CLIENT_SECURITY_PLAINTEXT=true \
             camunda/connectors-bundle:8.8.1
@@ -93,7 +98,9 @@ jobs:
       - name: Wait for connector to be ready
         run: |
           echo "Waiting for connector to register..."
-          timeout 30 bash -c 'until docker logs rssfeed-connector 2>&1 | grep -q "Starting job worker"; do sleep 1; done'
+          # Show all job workers to debug
+          docker logs rssfeed-connector 2>&1 | grep "Starting job worker" || echo "No job workers found yet"
+          timeout 30 bash -c 'until docker logs rssfeed-connector 2>&1 | grep -q "Starting job worker.*rssfeed"; do sleep 1; done'
           
       - name: Run integration tests
         run: |

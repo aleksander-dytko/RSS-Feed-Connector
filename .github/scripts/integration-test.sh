@@ -12,15 +12,21 @@ POLL_INTERVAL=2   # seconds
 
 # Step 1: Deploy BPMN process
 echo "📦 Deploying BPMN process definition..."
+echo "Using BPMN file: ${BPMN_FILE}"
+ls -lh "${BPMN_FILE}"
+
 DEPLOYMENT_RESPONSE=$(curl -s -X POST "${ORCHESTRATE_URL}/v2/deployments" \
   -H "Content-Type: multipart/form-data" \
   -H "Accept: application/json" \
-  -F "fetch_rss_example.bpmn=@${BPMN_FILE}")
+  -F "resources=@${BPMN_FILE}")
 
-DEPLOYMENT_KEY=$(echo "$DEPLOYMENT_RESPONSE" | grep -o '"key":"[0-9]*"' | head -1 | cut -d'"' -f4)
+echo "Deployment response: $DEPLOYMENT_RESPONSE"
+
+# Extract deployment key from JSON
+DEPLOYMENT_KEY=$(echo "$DEPLOYMENT_RESPONSE" | grep -o '"deploymentKey":"[0-9]*"' | cut -d'"' -f4)
 if [ -z "$DEPLOYMENT_KEY" ]; then
   echo "❌ Failed to deploy BPMN process"
-  echo "Response: $DEPLOYMENT_RESPONSE"
+  echo "Full response: $DEPLOYMENT_RESPONSE"
   exit 1
 fi
 echo "✅ Process deployed successfully (key: ${DEPLOYMENT_KEY})"
@@ -32,7 +38,9 @@ INSTANCE_RESPONSE=$(curl -s -X POST "${ORCHESTRATE_URL}/v2/process-instances" \
   -H "Accept: application/json" \
   -d "{\"processDefinitionId\":\"${PROCESS_ID}\",\"variables\":{}}")
 
-  PROCESS_INSTANCE_KEY=$(echo "$INSTANCE_RESPONSE" | grep -o '"processInstanceKey":"[0-9]*"' | cut -d'"' -f4)
+echo "Instance creation response: $INSTANCE_RESPONSE"
+
+PROCESS_INSTANCE_KEY=$(echo "$INSTANCE_RESPONSE" | grep -o '"processInstanceKey":"[0-9]*"' | cut -d'"' -f4)
 if [ -z "$PROCESS_INSTANCE_KEY" ]; then
   echo "❌ Failed to create process instance"
   echo "Response: $INSTANCE_RESPONSE"
