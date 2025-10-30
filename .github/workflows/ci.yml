@@ -152,13 +152,14 @@ jobs:
           TAG_NAME=${GITHUB_REF#refs/tags/}
           VERSION=${TAG_NAME#v}  # Strip 'v' prefix
           echo "Tag: ${TAG_NAME}, Version: ${VERSION}"
-          echo "# Release ${TAG_NAME}" > release-notes.md
           if [ -f CHANGELOG.md ]; then
             # Extract release notes for this version from CHANGELOG (without 'v' prefix in search)
-            awk "/^## \[${VERSION}\]/,/^## \[/" CHANGELOG.md | head -n -1 >> release-notes.md || true
+            # Find the section for this version and extract until the next version heading
+            awk "/^## \[${VERSION}\]/,/^## \[[0-9]/" CHANGELOG.md | head -n -1 > release-notes.md || true
             echo "Generated release notes:"
             cat release-notes.md
           else
+            echo "# Release ${TAG_NAME}" > release-notes.md
             echo "Initial stable release" >> release-notes.md
           fi
 
