@@ -35,31 +35,19 @@ import java.util.stream.Collectors;
 
 /**
  * RSS Feed Connector for Camunda 8.
- * Fetches and parses RSS feed data from a specified URL with optional filtering.
+ * Fetches and parses RSS feed data from a specified URL with optional
+ * filtering.
  */
-@OutboundConnector(
-    name = "RssFeedConnector",
-    inputVariables = {"feedUrl", "maxItems", "fromDate", "toDate"},
-    type = "io.camunda:rssfeed:1"
-)
-@ElementTemplate(
-    id = "io.camunda.connector.rssfeed.v1",
-    name = "RSS Feed Connector",
-    version = 1,
-    description = "Fetches and parses RSS feed data from a specified URL",
-    icon = "icon.svg",
-    documentationRef = "https://github.com/aleksander-dytko/RSS-Feed-Connector",
-    propertyGroups = {
+@OutboundConnector(name = "RssFeedConnector", inputVariables = { "feedUrl", "maxItems", "fromDate",
+        "toDate" }, type = "io.camunda:rssfeed:1")
+@ElementTemplate(id = "io.camunda.connector.rssfeed.v1", name = "RSS Feed Connector", version = 1, description = "Fetches and parses RSS feed data from a specified URL", icon = "icon.svg", documentationRef = "https://github.com/aleksander-dytko/RSS-Feed-Connector", propertyGroups = {
         @ElementTemplate.PropertyGroup(id = "configuration", label = "Configuration")
-    },
-    inputDataClass = RssFeedRequest.class
-)
+}, inputDataClass = RssFeedRequest.class)
 public class RssFeedConnectorFunction implements OutboundConnectorFunction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RssFeedConnectorFunction.class);
-    
+
     // Configuration constants
-    private static final int DEFAULT_MAX_ITEMS = 10;
     private static final int SAFETY_LIMIT_ITEMS = 500;
     private static final Duration HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration HTTP_REQUEST_TIMEOUT = Duration.ofSeconds(30);
@@ -68,9 +56,9 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
 
     public RssFeedConnectorFunction() {
         this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(HTTP_CONNECT_TIMEOUT)
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
+                .connectTimeout(HTTP_CONNECT_TIMEOUT)
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
     }
 
     // Constructor for testing with custom HttpClient
@@ -91,13 +79,13 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
             LOGGER.debug("Could not retrieve process instance key", e);
         }
 
-        LOGGER.info("Executing RSS Feed Connector [processInstanceKey={}] with URL: {}, maxItems: {}, fromDate: {}, toDate: {}",
-            processInstanceKey,
-            connectorRequest.feedUrl(),
-            connectorRequest.getMaxItemsOrDefault(),
-            connectorRequest.fromDate(),
-            connectorRequest.toDate()
-        );
+        LOGGER.info(
+                "Executing RSS Feed Connector [processInstanceKey={}] with URL: {}, maxItems: {}, fromDate: {}, toDate: {}",
+                processInstanceKey,
+                connectorRequest.feedUrl(),
+                connectorRequest.getMaxItemsOrDefault(),
+                connectorRequest.fromDate(),
+                connectorRequest.toDate());
 
         return executeConnector(connectorRequest);
     }
@@ -105,7 +93,8 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
     /**
      * Main connector execution logic.
      * 
-     * @param request the validated request containing feed URL and filter parameters
+     * @param request the validated request containing feed URL and filter
+     *                parameters
      * @return the result containing filtered feed items
      * @throws ConnectorException if any error occurs during fetching or parsing
      */
@@ -116,14 +105,13 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
         // Parse optional date filters and validate date range
         OffsetDateTime fromDate = request.parseFromDate();
         OffsetDateTime toDate = request.parseToDate();
-        
+
         // Cross-field validation: fromDate must be before toDate
         if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
             throw new ConnectorException(
-                "INVALID_DATE_RANGE",
-                "fromDate must be before or equal to toDate. Received fromDate: " +
-                request.fromDate() + ", toDate: " + request.toDate()
-            );
+                    "INVALID_DATE_RANGE",
+                    "fromDate must be before or equal to toDate. Received fromDate: " +
+                            request.fromDate() + ", toDate: " + request.toDate());
         }
 
         // Fetch and parse the RSS feed
@@ -132,40 +120,39 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
         // Get all entries (limit in-memory for safety)
         int originalSize = feed.getEntries().size();
         List<SyndEntry> entries = feed.getEntries().stream()
-            .limit(SAFETY_LIMIT_ITEMS)
-            .collect(Collectors.toList());
-        
+                .limit(SAFETY_LIMIT_ITEMS)
+                .collect(Collectors.toList());
+
         int totalItems = entries.size();
 
         // Warn if truncation occurred
         if (originalSize > SAFETY_LIMIT_ITEMS) {
             LOGGER.warn("Feed contains {} items, but only {} items will be processed due to safety limit. " +
-                "Consider filtering at the source or adjusting SAFETY_LIMIT_ITEMS.",
-                originalSize, SAFETY_LIMIT_ITEMS);
+                    "Consider filtering at the source or adjusting SAFETY_LIMIT_ITEMS.",
+                    originalSize, SAFETY_LIMIT_ITEMS);
         }
 
         LOGGER.debug("Fetched {} items from feed: {}", totalItems, feed.getTitle());
-        
+
         // Convert to our DTO objects and apply filtering
         List<RssFeedItem> items = entries.stream()
-            .map(this::convertToRssFeedItem)
-            .filter(item -> matchesDateFilter(item, fromDate, toDate))
-            .sorted(Comparator.comparing(
-                RssFeedItem::publishedDate,
-                Comparator.nullsLast(Comparator.reverseOrder())
-            ))
-            .limit(request.getMaxItemsOrDefault())
-            .collect(Collectors.toList());
-        
+                .map(this::convertToRssFeedItem)
+                .filter(item -> matchesDateFilter(item, fromDate, toDate))
+                .sorted(Comparator.comparing(
+                        RssFeedItem::publishedDate,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(request.getMaxItemsOrDefault())
+                .collect(Collectors.toList());
+
         int filteredItems = items.size();
         LOGGER.info("Parsed {} items, filtered to {} items", totalItems, filteredItems);
-        
+
         // Extract feed metadata
         FeedMetadata metadata = extractFeedMetadata(feed);
 
         return new RssFeedResult(items, totalItems, filteredItems, metadata);
     }
-    
+
     /**
      * Validate and parse the feed URL.
      * 
@@ -179,23 +166,21 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
             // Validate scheme is HTTP, HTTPS, or file (file for testing)
             String scheme = uri.getScheme();
             if (scheme == null || (!scheme.equalsIgnoreCase("http") &&
-                !scheme.equalsIgnoreCase("https") && !scheme.equalsIgnoreCase("file"))) {
+                    !scheme.equalsIgnoreCase("https") && !scheme.equalsIgnoreCase("file"))) {
                 throw new ConnectorException(
-                    "INVALID_URL",
-                    "URL must use HTTP, HTTPS, or file scheme. Received: " + urlString
-                );
+                        "INVALID_URL",
+                        "URL must use HTTP, HTTPS, or file scheme. Received: " + urlString);
             }
             return uri;
         } catch (IllegalArgumentException e) {
             LOGGER.error("Invalid URL: {}", urlString, e);
             throw new ConnectorException(
-                "INVALID_URL",
-                "The provided URL is malformed: " + urlString,
-                e
-            );
+                    "INVALID_URL",
+                    "The provided URL is malformed: " + urlString,
+                    e);
         }
     }
-    
+
     /**
      * Fetch and parse the RSS feed from the given URI using HttpClient.
      *
@@ -211,51 +196,47 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(uri)
-                .timeout(HTTP_REQUEST_TIMEOUT)
-                .header("User-Agent", "Camunda-RSS-Feed-Connector/1.0")
-                .GET()
-                .build();
+                    .uri(uri)
+                    .timeout(HTTP_REQUEST_TIMEOUT)
+                    .header("User-Agent", "Camunda-RSS-Feed-Connector/1.0")
+                    .GET()
+                    .build();
 
             HttpResponse<InputStream> response = httpClient.send(request,
-                HttpResponse.BodyHandlers.ofInputStream());
+                    HttpResponse.BodyHandlers.ofInputStream());
 
             // Check for successful response
             int statusCode = response.statusCode();
             if (statusCode < 200 || statusCode >= 300) {
                 throw new ConnectorException(
-                    "FETCH_ERROR",
-                    "Failed to fetch RSS feed. HTTP status code: " + statusCode
-                );
+                        "FETCH_ERROR",
+                        "Failed to fetch RSS feed. HTTP status code: " + statusCode);
             }
 
             try (InputStream inputStream = response.body();
-                 XmlReader reader = new XmlReader(inputStream)) {
+                    XmlReader reader = new XmlReader(inputStream)) {
                 SyndFeedInput input = new SyndFeedInput();
                 return input.build(reader);
             }
         } catch (FeedException e) {
             LOGGER.error("Failed to parse RSS feed from URI: {}", uri, e);
             throw new ConnectorException(
-                "PARSE_ERROR",
-                "Failed to parse RSS feed. The content may not be valid RSS/Atom XML: " + e.getMessage(),
-                e
-            );
+                    "PARSE_ERROR",
+                    "Failed to parse RSS feed. The content may not be valid RSS/Atom XML: " + e.getMessage(),
+                    e);
         } catch (IOException e) {
             LOGGER.error("Failed to fetch RSS feed from URI: {}", uri, e);
             throw new ConnectorException(
-                "FETCH_ERROR",
-                "Failed to fetch RSS feed from URI. Network or server error: " + e.getMessage(),
-                e
-            );
+                    "FETCH_ERROR",
+                    "Failed to fetch RSS feed from URI. Network or server error: " + e.getMessage(),
+                    e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             LOGGER.error("Request interrupted while fetching RSS feed from URI: {}", uri, e);
             throw new ConnectorException(
-                "FETCH_ERROR",
-                "Request was interrupted while fetching RSS feed: " + e.getMessage(),
-                e
-            );
+                    "FETCH_ERROR",
+                    "Request was interrupted while fetching RSS feed: " + e.getMessage(),
+                    e);
         }
     }
 
@@ -268,26 +249,24 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
      */
     private SyndFeed fetchFeedFromFile(URI uri) {
         try (InputStream inputStream = uri.toURL().openStream();
-             XmlReader reader = new XmlReader(inputStream)) {
+                XmlReader reader = new XmlReader(inputStream)) {
             SyndFeedInput input = new SyndFeedInput();
             return input.build(reader);
         } catch (FeedException e) {
             LOGGER.error("Failed to parse RSS feed from file URI: {}", uri, e);
             throw new ConnectorException(
-                "PARSE_ERROR",
-                "Failed to parse RSS feed. The content may not be valid RSS/Atom XML: " + e.getMessage(),
-                e
-            );
+                    "PARSE_ERROR",
+                    "Failed to parse RSS feed. The content may not be valid RSS/Atom XML: " + e.getMessage(),
+                    e);
         } catch (IOException e) {
             LOGGER.error("Failed to read RSS feed from file URI: {}", uri, e);
             throw new ConnectorException(
-                "FETCH_ERROR",
-                "Failed to read RSS feed from file: " + e.getMessage(),
-                e
-            );
+                    "FETCH_ERROR",
+                    "Failed to read RSS feed from file: " + e.getMessage(),
+                    e);
         }
     }
-    
+
     /**
      * Convert a Rome SyndEntry to our RssFeedItem DTO.
      * Gracefully handles missing fields by setting them to null or empty lists.
@@ -302,31 +281,30 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
         } else if (entry.getUpdatedDate() != null) {
             publishedDate = formatDate(entry.getUpdatedDate());
         }
-        
+
         List<String> categories = entry.getCategories() != null
-            ? entry.getCategories().stream()
-                .filter(Objects::nonNull)
-                .map(cat -> cat.getName())
-                .filter(name -> name != null && !name.isEmpty())
-                .collect(Collectors.toList())
-            : List.of();
-        
+                ? entry.getCategories().stream()
+                        .filter(Objects::nonNull)
+                        .map(cat -> cat.getName())
+                        .filter(name -> name != null && !name.isEmpty())
+                        .collect(Collectors.toList())
+                : List.of();
+
         String description = null;
         if (entry.getDescription() != null) {
             description = entry.getDescription().getValue();
         }
-        
+
         return new RssFeedItem(
-            entry.getTitle(),
-            entry.getLink(),
-            description,
-            publishedDate,
-            entry.getAuthor(),
-            categories,
-            entry.getUri()
-        );
+                entry.getTitle(),
+                entry.getLink(),
+                description,
+                publishedDate,
+                entry.getAuthor(),
+                categories,
+                entry.getUri());
     }
-    
+
     /**
      * Extract metadata from the feed.
      *
@@ -340,11 +318,10 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
         }
 
         return new FeedMetadata(
-            feed.getTitle(),
-            feed.getDescription(),
-            feed.getLink(),
-            lastBuildDate
-        );
+                feed.getTitle(),
+                feed.getDescription(),
+                feed.getLink(),
+                lastBuildDate);
     }
 
     /**
@@ -355,16 +332,16 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
      */
     private String formatDate(Date date) {
         return date.toInstant()
-            .atZone(ZoneId.of("UTC"))
-            .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                .atZone(ZoneId.of("UTC"))
+                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
     }
-    
+
     /**
      * Check if an item matches the date filter criteria.
      * 
-     * @param item the feed item
+     * @param item     the feed item
      * @param fromDate the minimum date (inclusive), or null for no minimum
-     * @param toDate the maximum date (inclusive), or null for no maximum
+     * @param toDate   the maximum date (inclusive), or null for no maximum
      * @return true if the item matches the filter
      */
     private boolean matchesDateFilter(RssFeedItem item, OffsetDateTime fromDate, OffsetDateTime toDate) {
@@ -372,25 +349,26 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
         if (fromDate == null && toDate == null) {
             return true;
         }
-        
+
         // If item has no published date, include it (can be filtered by user later)
         if (item.publishedDate() == null) {
             return true;
         }
-        
+
         try {
-            OffsetDateTime itemDate = OffsetDateTime.parse(item.publishedDate(), DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-            
+            OffsetDateTime itemDate = OffsetDateTime.parse(item.publishedDate(),
+                    DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
             // Check from date (inclusive)
             if (fromDate != null && itemDate.isBefore(fromDate)) {
                 return false;
             }
-            
+
             // Check to date (inclusive)
             if (toDate != null && itemDate.isAfter(toDate)) {
                 return false;
             }
-            
+
             return true;
         } catch (Exception e) {
             // If we can't parse the date, include the item
@@ -399,4 +377,3 @@ public class RssFeedConnectorFunction implements OutboundConnectorFunction {
         }
     }
 }
-

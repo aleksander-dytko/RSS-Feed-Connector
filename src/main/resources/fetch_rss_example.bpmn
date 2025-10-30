@@ -9,10 +9,9 @@
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="io.camunda:rssfeed:1" retries="3" />
         <zeebe:ioMapping>
-          <zeebe:input target="DEFAULT_MAX_ITEMS" />
           <zeebe:input source="https://feeds.bbci.co.uk/news/rss.xml" target="feedUrl" />
           <zeebe:input source="10" target="maxItems" />
-          <zeebe:input source="=today()-duration(&#34;P30D&#34;)" target="fromDate" />
+          <zeebe:input source="=today()-duration(&#34;P7D&#34;)" target="fromDate" />
           <zeebe:input source="=today()" target="toDate" />
         </zeebe:ioMapping>
         <zeebe:taskHeaders>

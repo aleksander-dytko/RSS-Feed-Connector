@@ -5,7 +5,22 @@ All notable changes to the RSS Feed Connector for Camunda 8 will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-01-27
+## [1.0.1] - 2025-10-30
+
+### Fixed
+
+- Fixed GitHub Actions CI/CD workflows for automated releases
+- Fixed release notes generation to properly handle version tags
+- Fixed integration tests to handle empty state gracefully
+- Fixed Elasticsearch version compatibility in docker-compose setup
+- Removed unnecessary DEFAULT_MAX_ITEMS constant and cleaned up element template generation
+
+### Changed
+
+- Code formatting improvements for consistency
+- Improved error handling in integration tests
+
+## [1.0.0] - 2025-10-27
 
 ### Added
 

@@ -40,14 +40,6 @@
     },
     "type" : "Hidden"
   }, {
-    "id" : "DEFAULT_MAX_ITEMS",
-    "label" : "DEFAULT_MAX_ITEMS",
-    "binding" : {
-      "name" : "DEFAULT_MAX_ITEMS",
-      "type" : "zeebe:input"
-    },
-    "type" : "Number"
-  }, {
     "id" : "feedUrl",
     "label" : "Feed URL",
     "description" : "The URL of the RSS feed to fetch (e.g., https://feeds.bbci.co.uk/news/rss.xml)",

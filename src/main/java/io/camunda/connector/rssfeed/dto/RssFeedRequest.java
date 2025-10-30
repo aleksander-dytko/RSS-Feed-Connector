@@ -18,72 +18,39 @@ import java.time.format.DateTimeParseException;
  * Contains the feed URL and optional filtering parameters.
  */
 public record RssFeedRequest(
-    /**
-     * The URL of the RSS feed to fetch.
-     * Must be a valid HTTP or HTTPS URL.
-     * Example: https://feeds.bbci.co.uk/news/rss.xml
-     */
-    @NotBlank(message = "Feed URL is required")
-    @TemplateProperty(
-        group = "configuration",
-        label = "Feed URL",
-        description = "The URL of the RSS feed to fetch (e.g., https://feeds.bbci.co.uk/news/rss.xml)",
-        type = PropertyType.String
-    )
-    String feedUrl,
-    
-    /**
-     * Maximum number of items to return (after filtering).
-     * Must be between 1 and 500. Defaults to 10.
-     */
-    @Min(value = 1, message = "Max items must be at least 1")
-    @Max(value = 500, message = "Max items cannot exceed 500")
-    @TemplateProperty(
-        group = "configuration",
-        label = "Max Items",
-        description = "Maximum number of items to return (default: 10)",
-        defaultValue = "10",
-        type = PropertyType.String
-    )
-    Integer maxItems,
-    
-    /**
-     * Filter items published on or after this date.
-     * Must be in ISO 8601 format (e.g., "2025-01-01T00:00:00Z").
-     * Supports FEEL expressions like today() or now().
-     */
-    @TemplateProperty(
-        group = "configuration",
-        label = "From Date",
-        description = "Filter items published on or after this date (ISO8601 format, e.g., 2025-01-01T00:00:00Z or FEEL: today())",
-        optional = true,
-        type = PropertyType.String
-    )
-    String fromDate,
-    
-    /**
-     * Filter items published on or before this date.
-     * Must be in ISO 8601 format (e.g., "2025-12-31T23:59:59Z").
-     * Supports FEEL expressions like today() or now().
-     */
-    @TemplateProperty(
-        group = "configuration",
-        label = "To Date",
-        description = "Filter items published on or before this date (ISO8601 format, e.g., 2025-12-31T23:59:59Z or FEEL: today())",
-        optional = true,
-        type = PropertyType.String
-    )
-    String toDate
-) {
-    private static final int DEFAULT_MAX_ITEMS = 10;
+        /**
+         * The URL of the RSS feed to fetch.
+         * Must be a valid HTTP or HTTPS URL.
+         * Example: https://feeds.bbci.co.uk/news/rss.xml
+         */
+        @NotBlank(message = "Feed URL is required") @TemplateProperty(group = "configuration", label = "Feed URL", description = "The URL of the RSS feed to fetch (e.g., https://feeds.bbci.co.uk/news/rss.xml)", type = PropertyType.String) String feedUrl,
 
+        /**
+         * Maximum number of items to return (after filtering).
+         * Must be between 1 and 500. Defaults to 10.
+         */
+        @Min(value = 1, message = "Max items must be at least 1") @Max(value = 500, message = "Max items cannot exceed 500") @TemplateProperty(group = "configuration", label = "Max Items", description = "Maximum number of items to return (default: 10)", defaultValue = "10", type = PropertyType.String) Integer maxItems,
+
+        /**
+         * Filter items published on or after this date.
+         * Must be in ISO 8601 format (e.g., "2025-01-01T00:00:00Z").
+         * Supports FEEL expressions like today() or now().
+         */
+        @TemplateProperty(group = "configuration", label = "From Date", description = "Filter items published on or after this date (ISO8601 format, e.g., 2025-01-01T00:00:00Z or FEEL: today())", optional = true, type = PropertyType.String) String fromDate,
+
+        /**
+         * Filter items published on or before this date.
+         * Must be in ISO 8601 format (e.g., "2025-12-31T23:59:59Z").
+         * Supports FEEL expressions like today() or now().
+         */
+        @TemplateProperty(group = "configuration", label = "To Date", description = "Filter items published on or before this date (ISO8601 format, e.g., 2025-12-31T23:59:59Z or FEEL: today())", optional = true, type = PropertyType.String) String toDate) {
     /**
      * Get the maximum number of items, with a default of 10 if not specified.
      */
     public int getMaxItemsOrDefault() {
-        return maxItems != null ? maxItems : DEFAULT_MAX_ITEMS;
+        return maxItems != null ? maxItems : 10;
     }
-    
+
     /**
      * Parse the fromDate string into an OffsetDateTime.
      * 
@@ -93,7 +60,7 @@ public record RssFeedRequest(
     public OffsetDateTime parseFromDate() {
         return parseDate(fromDate, "fromDate");
     }
-    
+
     /**
      * Parse the toDate string into an OffsetDateTime.
      * 
@@ -103,7 +70,7 @@ public record RssFeedRequest(
     public OffsetDateTime parseToDate() {
         return parseDate(toDate, "toDate");
     }
-    
+
     /**
      * Parse a date string into an OffsetDateTime using ISO 8601 format.
      * Supports multiple formats including those returned by FEEL functions:
@@ -112,7 +79,7 @@ public record RssFeedRequest(
      * - DateTime with timezone identifier: 2025-10-25T12:20:31.434Z[GMT]
      * 
      * @param dateString the date string to parse
-     * @param fieldName the name of the field (for error messages)
+     * @param fieldName  the name of the field (for error messages)
      * @return the parsed date, or null if dateString is null or empty
      * @throws ConnectorException if the date format is invalid
      */
@@ -120,15 +87,16 @@ public record RssFeedRequest(
         if (dateString == null || dateString.trim().isEmpty()) {
             return null;
         }
-        
+
         String normalizedDate = dateString.trim();
-        
-        // Handle FEEL datetime with timezone identifier like "2025-10-25T12:20:31.434Z[GMT]"
+
+        // Handle FEEL datetime with timezone identifier like
+        // "2025-10-25T12:20:31.434Z[GMT]"
         // Remove the timezone identifier in brackets
         if (normalizedDate.contains("[")) {
             normalizedDate = normalizedDate.substring(0, normalizedDate.indexOf('['));
         }
-        
+
         try {
             // Try to parse as OffsetDateTime (with time component)
             return OffsetDateTime.parse(normalizedDate, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
@@ -140,13 +108,12 @@ public record RssFeedRequest(
                 return date.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
             } catch (DateTimeParseException e2) {
                 throw new ConnectorException(
-                    "INVALID_DATE_FORMAT",
-                    fieldName + " must follow ISO8601 format. Supported formats: " +
-                    "date (e.g., 2025-01-01), datetime (e.g., 2025-01-01T00:00:00Z). Received: " + dateString,
-                    e2
-                );
+                        "INVALID_DATE_FORMAT",
+                        fieldName + " must follow ISO8601 format. Supported formats: " +
+                                "date (e.g., 2025-01-01), datetime (e.g., 2025-01-01T00:00:00Z). Received: "
+                                + dateString,
+                        e2);
             }
         }
     }
 }
-
