@@ -2,202 +2,176 @@
 
 ## Project Overview
 
-This is a **Camunda 8 Outbound Connector** that fetches and parses RSS/Atom feeds using the ROME library. The connector integrates RSS feeds into BPMN workflows with filtering capabilities (date ranges, item limits).
+A **Camunda 8 Outbound Connector** that fetches/parses RSS/Atom feeds via ROME library. Integrates RSS into BPMN workflows with date filtering and item limits.
 
-## Architecture & Key Components
+## Architecture & Critical Patterns
 
-### Core Structure
+### Connector Structure (Camunda SDK Pattern)
 
-- **Main Connector**: `RssFeedConnectorFunction` - implements `OutboundConnectorFunction` with `@OutboundConnector` annotation
-- **DTOs**: Located in `dto/` package using Java records for immutability
-  - `RssFeedRequest` - input validation and template property annotations
-  - `RssFeedResult` - structured output with items, metadata, and counts
-  - `RssFeedItem` - individual feed item with standard RSS fields
-  - `FeedMetadata` - feed-level information (title, description, lastBuildDate)
+**Main class**: `RssFeedConnectorFunction` implements `OutboundConnectorFunction`
 
-### Service Registration Pattern
+- `@OutboundConnector(type = "io.camunda:rssfeed:1")` - defines connector type and input variables
+- `@ElementTemplate` - generates Camunda Modeler UI template at build time
+- Constructor injection for `HttpClient` (enables test mocking)
 
-Connectors are auto-discovered via `META-INF/services/io.camunda.connector.api.outbound.OutboundConnectorFunction` containing the fully qualified class name.
+**DTOs** (Java records in `dto/` package):
 
-### Element Template Generation
+- `RssFeedRequest` - uses `@TemplateProperty` for UI generation + Jakarta validation
+- `RssFeedResult`, `RssFeedItem`, `FeedMetadata` - immutable output structures
 
-Element templates are **auto-generated** during Maven package phase using:
+**Service registration**: `META-INF/services/io.camunda.connector.api.outbound.OutboundConnectorFunction` file contains fully qualified class name for auto-discovery
 
-- `@ElementTemplate` annotation on connector class
-- `@TemplateProperty` annotations on request record fields
-- Output: `element-templates/rss-feed-connector.json`
+### Auto-Generated Element Template
 
-## Development Workflows
+**DO NOT manually edit** `element-templates/rss-feed-connector.json` - regenerated on every `mvn package`
 
-### Build & Test Commands
+- To add inputs: Add field to `RssFeedRequest` with `@TemplateProperty` + update `@OutboundConnector.inputVariables`
+- To change UI: Modify annotation properties (label, description, group, defaultValue)
+- Build triggers `element-template-generator-maven-plugin`
+
+## Critical Development Workflows
+
+### Essential Commands (via `./run-connector.sh`)
 
 ```bash
-# Quick development workflow
-./run-connector.sh test          # Run unit tests
-./run-connector.sh local         # Connect to local Camunda
-./run-connector.sh saas          # Connect to Camunda SaaS
-
-# Manual Maven commands
-mvn clean package                # Build + generate element template
-mvn clean verify                 # Run tests with coverage
+./run-connector.sh test   # Unit tests only
+./run-connector.sh local  # Runs against local docker-compose cluster
+./run-connector.sh saas   # Connects to SaaS (needs application-saas.properties)
 ```
 
-### Docker Deployment
+**What happens internally**: Script uses Spring Boot + profile selection to inject Camunda client config from `src/test/resources/application-{profile}.properties`
 
-#### Local Docker Cluster (Recommended for Development)
-
-The project includes `docker-compose.test.yml` for a complete local Camunda 8 environment:
+### Maven Build (generates element template)
 
 ```bash
-# Start full Camunda 8 stack (Zeebe, Operate, Tasklist, Connectors, Elasticsearch)
+mvn clean package  # Creates fat JAR + element-templates/rss-feed-connector.json
+mvn verify         # Runs tests WITHOUT integration tests
+```
+
+### Testing Strategy
+
+**Unit tests** (`RssFeedConnectorFunctionTest`):
+
+- Mock `OutboundConnectorContext` via `OutboundConnectorContextBuilder`
+- Inject mock `HttpClient` in constructor for network isolation
+- Feed test data from `src/test/resources/{test,empty,invalid}-feed.xml` using `file://` URLs
+
+**Integration tests** (GitHub Actions only):
+
+- Spins up full Camunda stack via `docker-compose.test.yml`
+- Deploys connector JAR to `camunda/connectors-bundle:8.8.1` container
+- Executes `.github/scripts/integration-test.sh` which deploys BPMN and verifies execution
+- **Not run locally by default** (requires Docker + 120s startup time)
+
+### Local Docker Development
+
+**CRITICAL**: Container version (`8.8.1`) MUST match `<version.connectors>` in pom.xml
+
+```bash
+# Start cluster (includes Zeebe, Operate, Tasklist, Connectors runtime)
 docker compose -f docker-compose.test.yml up -d
 
-# Verify services are running
-docker ps | grep camunda
+# Deploy YOUR connector as sidecar
+docker run -d --name=rssfeed-connector --network=host \
+  -v $PWD/target/connector-rssfeed-*.jar:/opt/app/connector.jar \
+  -e CAMUNDA_CLIENT_BROKER_GATEWAY_ADDRESS=localhost:26500 \
+  -e CAMUNDA_CLIENT_SECURITY_PLAINTEXT=true \
+  camunda/connectors-bundle:8.8.1
 
-# Access components:
-# - Operate: http://localhost:8088/operate (demo/demo)
-# - Tasklist: http://localhost:8088/tasklist (demo/demo)
-# - Zeebe Gateway: localhost:26500
+# Access UI: http://localhost:8088/operate (demo/demo)
 ```
 
-#### Deploy Custom Connector to Docker
+**Why `--network=host`**: Connector needs to reach `localhost:26500` (Zeebe gateway) from within container
 
-After building the fat JAR (`mvn clean package`), deploy your RSS Feed Connector:
+### Deploying to Camunda SaaS
+
+**Setup credentials** (run once):
 
 ```bash
-# For local Docker cluster (plaintext security)
-docker run --rm --name=CustomConnectorInSMCore \
-    -v $PWD/target/connector-rssfeed-1.0.0.jar:/opt/app/connector.jar \
-    --network=host \
-    -e CAMUNDA_CLIENT_BROKER_GATEWAY-ADDRESS=localhost:26500 \
-    -e CAMUNDA_CLIENT_SECURITY_PLAINTEXT=true \
-    -e CAMUNDA_OPERATE_CLIENT_URL=http://localhost:8088 \
-    -e CAMUNDA_OPERATE_CLIENT_USERNAME=demo \
-    -e CAMUNDA_OPERATE_CLIENT_PASSWORD=demo \
-    camunda/connectors-bundle:8.8.1
-
-# For Camunda SaaS cluster
-docker run --rm --name=CustomConnectorInSaaS \
-    -v $PWD/target/connector-rssfeed-1.0.0.jar:/opt/app/connector.jar \
-    -e CAMUNDA_CLIENT_SECURITY_PLAINTEXT=false \
-    -e CAMUNDA_CLIENT_AUTH_CLIENT_ID='<YOUR_CLIENT_ID>' \
-    -e CAMUNDA_CLIENT_AUTH_CLIENT_SECRET='<YOUR_CLIENT_SECRET>' \
-    -e CAMUNDA_CLIENT_CLOUD_CLUSTER_ID='<YOUR_CLUSTER_ID>' \
-    -e CAMUNDA_CLIENT_CLOUD_REGION='<YOUR_CLUSTER_REGION>' \
-    camunda/connectors-bundle:8.8.1
+./setup-credentials.sh  # Prompts for SaaS credentials, creates application-saas.properties
 ```
 
-**Key Docker configuration notes:**
-
-- Use `--network=host` for local Docker to access localhost services
-- Set `CAMUNDA_CLIENT_SECURITY_PLAINTEXT=true` for local development without Keycloak
-- The fat JAR is mounted to `/opt/app/connector.jar` inside the container
-- Container version must match Connector SDK version (8.8.1)
-
-#### Docker Compose Stack Details
-
-- **orchestration**: Consolidated Zeebe + Operate + Tasklist (port 8088)
-- **connectors**: Standard Camunda connectors bundle (port 8086)
-- **elasticsearch**: Required for Operate/Tasklist data storage
-- **Healthchecks**: Ensures services start in correct order
-- **Basic auth**: Username `demo`, password `demo` (no Keycloak)
-
-#### Cleanup Docker Environment
+**Docker deployment to SaaS**:
 
 ```bash
-# Stop and remove all containers/volumes
-docker compose -f docker-compose.test.yml down -v
-
-# Stop custom connector
-docker stop CustomConnectorInSMCore
+# After building: mvn clean package
+docker run -d --name=rssfeed-connector-saas \
+  -v $PWD/target/connector-rssfeed-*.jar:/opt/app/connector.jar \
+  -e CAMUNDA_CLIENT_SECURITY_PLAINTEXT=false \
+  -e CAMUNDA_CLIENT_AUTH_CLIENT_ID='<YOUR_CLIENT_ID>' \
+  -e CAMUNDA_CLIENT_AUTH_CLIENT_SECRET='<YOUR_CLIENT_SECRET>' \
+  -e CAMUNDA_CLIENT_CLOUD_CLUSTER_ID='<YOUR_CLUSTER_ID>' \
+  -e CAMUNDA_CLIENT_CLOUD_REGION='<YOUR_CLUSTER_REGION>' \
+  camunda/connectors-bundle:8.8.1
 ```
 
-### Testing Patterns
+**Key differences from local**:
 
-- **Unit tests**: Use `OutboundConnectorContextBuilder` to mock Camunda context
-- **Test resources**: XML files in `src/test/resources/` (test-feed.xml, empty-feed.xml, invalid-feed.xml)
-- **Mocking**: HttpClient injection for network isolation
-- **Assertions**: AssertJ for fluent assertions
+- NO `--network=host` (connects via internet)
+- `CAMUNDA_CLIENT_SECURITY_PLAINTEXT=false` (uses OAuth)
+- Requires cluster credentials from Camunda Console
+- Container version MUST match SDK version (8.8.1)
 
-## Key Conventions & Patterns
+## Project-Specific Conventions
 
-### Error Handling Strategy
+### Error Handling (Custom Exception Codes)
 
-- Custom error codes: `INVALID_URL`, `FETCH_ERROR`, `PARSE_ERROR`, `INVALID_DATE_FORMAT`, `INVALID_DATE_RANGE`
-- **Fail-fast validation** in request DTOs with Jakarta validation annotations
-- **Graceful degradation** for malformed feed items (log warnings, continue processing)
+All errors throw `ConnectorException` with standardized codes:
 
-### Safety Limits & Timeouts
+- `INVALID_URL` - Malformed URL or unsupported scheme (not http/https/file)
+- `FETCH_ERROR` - Network/HTTP issues (timeouts, 4xx/5xx responses)
+- `PARSE_ERROR` - Invalid RSS/Atom XML structure
+- `INVALID_DATE_FORMAT` - Date string doesn't match ISO8601 or FEEL output formats
+- `INVALID_DATE_RANGE` - fromDate > toDate (cross-field validation)
 
-- **Feed size limit**: 500 items max (memory protection)
-- **HTTP timeouts**: 10s connect, 30s request (in constructor)
-- **Input validation**: maxItems 1-500, proper date format validation
+**Pattern**: Fail-fast validation in DTOs (Jakarta), graceful degradation in feed parsing (log + continue)
 
-### Date Handling Pattern
+### Safety Limits (Memory Protection)
 
-- **Input**: ISO8601 strings (`2025-01-01T00:00:00Z`)
-- **Parsing**: `OffsetDateTime` with error handling
-- **Filtering**: Convert feed dates to `OffsetDateTime` for comparison
-- **Sorting**: Most recent first using `Comparator.comparing()`
+- `SAFETY_LIMIT_ITEMS = 500` - Hard cap on feed entries processed (warns if truncated)
+- `HTTP_CONNECT_TIMEOUT = 10s`, `HTTP_REQUEST_TIMEOUT = 30s` - Set in constructor
+- `maxItems` input: 1-500 range enforced by `@Min/@Max` validation
+
+### Date Handling (FEEL Expression Support)
+
+**Input formats accepted**:
+
+- ISO8601 with timezone: `2025-01-01T00:00:00Z`
+- Date-only (from FEEL `today()`): `2025-01-01` → converted to UTC midnight
+- With timezone identifier: `2025-10-25T12:20:31.434Z[GMT]` → strips `[GMT]` before parsing
+
+**Implementation**: `RssFeedRequest.parseDate()` tries `OffsetDateTime.parse()`, falls back to `LocalDate.parse()` + UTC conversion
 
 ### Logging Convention
 
 ```java
-// Always include processInstanceKey when available
-LOGGER.info("Executing RSS Feed Connector [processInstanceKey={}] with URL: {}",
-    processInstanceKey, connectorRequest.feedUrl());
+// ALWAYS include processInstanceKey when available (for correlation in Operate)
+LOGGER.info("Executing RSS Feed Connector [processInstanceKey={}] with URL: {}, maxItems: {}",
+    processInstanceKey, connectorRequest.feedUrl(), connectorRequest.getMaxItemsOrDefault());
 ```
 
-## Integration Points
+## Extension Patterns
 
-### Camunda Integration
+### Adding Input Parameters
 
-- **Connector type**: `"io.camunda:rssfeed:1"` (defined in `@OutboundConnector`)
-- **Input variables**: `feedUrl`, `maxItems`, `fromDate`, `toDate`
-- **Context binding**: Use `context.bindVariables(RssFeedRequest.class)`
-- **Job context**: Access `processInstanceKey` via `context.getJobContext()`
+1. Add field to `RssFeedRequest` record with `@TemplateProperty` (example: `feedUrl`)
+2. Add Jakarta validation: `@NotBlank`, `@Min`, `@Max`, etc.
+3. **CRITICAL**: Update `@OutboundConnector(inputVariables = {"feedUrl", "maxItems", ...})` array
+4. Rebuild - element template auto-generates with new UI field
 
-### External Dependencies
+### Release Process (Tag-Based)
 
-- **ROME library**: `SyndFeedInput`, `SyndFeed`, `SyndEntry` for RSS parsing
-- **Java HTTP Client**: Built-in with timeout configuration, redirect following
-- **Validation**: Jakarta validation for input constraints
+```bash
+# 1. Update version in pom.xml (e.g., 1.0.1 → 1.0.2)
+# 2. Update CHANGELOG.md with new ## [X.Y.Z] section
+# 3. Commit changes
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin main vX.Y.Z
+# GitHub Actions auto-creates release with CHANGELOG extraction
+```
 
-## Development Environment Setup
+**CHANGELOG extraction** (`.github/workflows/ci.yml`):
 
-### Property Files
-
-- `application-local.properties` - Local Camunda connection
-- `application-saas.properties` - SaaS credentials (use `setup-credentials.sh`)
-- Spring profiles: `-Dspring.config.additional-location=`
-
-### Maven Configuration Notes
-
-- **Java 21** target (modern language features)
-- **Connector SDK**: Version pinned in `version.connectors` property
-- **Provided scope**: `connector-core` (supplied by runtime)
-- **Test scope**: `connector-test`, `connector-runtime-test`
-
-## Common Patterns When Extending
-
-### Adding New Input Parameters
-
-1. Add field to `RssFeedRequest` record with `@TemplateProperty` annotation
-2. Add validation annotations (`@NotBlank`, `@Min`, `@Max`)
-3. Update `@OutboundConnector` inputVariables array
-4. Element template regenerates automatically on build
-
-### Error Code Addition
-
-1. Define constant in connector class
-2. Throw `ConnectorException` with code and descriptive message
-3. Document in README.md error codes table
-4. Add test case for the error scenario
-
-### Testing New Features
-
-- Create test XML files in `src/test/resources/`
-- Use `getTestResourceUrl()` helper for local file URLs
-- Mock HttpClient for network call isolation
-- Test both happy path and error conditions
+- Uses awk pattern: `/^## \[${VERSION}\]/ {found=1; next} found && /^## \[/ {exit} found`
+- Skips version header, extracts until next `## [` section
+- **Must follow Keep a Changelog format** with `## [X.Y.Z] - YYYY-MM-DD` headers
